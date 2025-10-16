@@ -1,3 +1,9 @@
-Physor20262
+# Physor20262
 
-readme
+## Files
+
+* Power Iteration .py
+
+* Neutron Transport Solver .py
+
+* Tutorial and Convergence Tests .ipynb
