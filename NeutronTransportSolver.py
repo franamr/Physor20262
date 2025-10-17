@@ -6,6 +6,7 @@ from dolfinx.fem.petsc import assemble_matrix
 from mshr import *
 import basix, ufl, os
 import scipy as sp
+from slepc4py import SLEPc
 from PowerIteration import gen_power_it_dynamic_momentum
 
 class NeutronTransportSolver:
@@ -26,7 +27,8 @@ class NeutronTransportSolver:
             nusigf1 = 0.3, nusigf2 = 0.1,
             S12 = 0.1,
             k = 1,
-            bord_cond = 'dir'       
+            bord_cond = 'dir' ,
+            eigmethod = 'powerit'     
     ):
         self.domain = domain
         self.D1, self.D2 = D1, D2
@@ -35,6 +37,7 @@ class NeutronTransportSolver:
         self.S12 = S12
         self.k = k
         self.bord_cond = bord_cond
+        self.eigmethod = eigmethod
 
         self.V = self._function_space()
         self.eigval = None
@@ -97,23 +100,62 @@ class NeutronTransportSolver:
 
         v0 =self.a.createVecLeft()
         v0.set(1.0)
+        if self.eigmethod == 'powerit':
+            lam_k, x_k, k, res = gen_power_it_dynamic_momentum(self.f, self.a, v0, tol = 1e-8, max_iter = 1000)
+            self.eigval = lam_k
+            self.power_its = k
+            self.vec = x_k
+            self.power_res = res
 
-        lam_k, x_k, k, res = gen_power_it_dynamic_momentum(self.f, self.a, v0, tol = 1e-8, max_iter = 1000)
-        self.eigval = lam_k
-        self.power_its = k
-        self.vec = x_k
-        self.power_res = res
+            phi = fem.Function(self.V)
+            phi.x.array[:] = self.vec.array
+            phi1, phi2 = phi.split()
+            V0 = fem.functionspace(self.domain, ('CG', 1))
 
-        phi = fem.Function(self.V)
-        phi.x.array[:] = self.vec.array
-        phi1, phi2 = phi.split()
-        V0 = fem.functionspace(self.domain, ('CG', 1))
+            self.phi1_proj = fem.Function(V0)
+            self.phi1_proj.interpolate(fem.Expression(phi1, V0.element.interpolation_points()))
 
-        self.phi1_proj = fem.Function(V0)
-        self.phi1_proj.interpolate(fem.Expression(phi1, V0.element.interpolation_points()))
+            self.phi2_proj = fem.Function(V0)
+            self.phi2_proj.interpolate(fem.Expression(phi2, V0.element.interpolation_points()))
+        if self.eigmethod == 'slepc':
+                  # cálculo de vvalores y vectores propios
+            print('aca')
+            eigensolver = SLEPc.EPS().create(MPI.COMM_WORLD)
+            eigensolver.setDimensions(1)
+            eigensolver.setProblemType(SLEPc.EPS.ProblemType.GNHEP)
 
-        self.phi2_proj = fem.Function(V0)
-        self.phi2_proj.interpolate(fem.Expression(phi2, V0.element.interpolation_points()))
+            st = SLEPc.ST().create(MPI.COMM_WORLD)
+            st.setType(SLEPc.ST.Type.SINVERT)
+            st.setShift(1.0)
+            st.setFromOptions()
+            eigensolver.setST(st)
+            eigensolver.setOperators(a, f)
+            eigensolver.setFromOptions()
+
+            eigensolver.solve()
+
+            self.vr, self.vi = a.getVecs()
+  
+            lam = eigensolver.getEigenpair(0, self.vr, self.vi)
+            print('aca2')
+            self.eigval = lam
+
+            phi = fem.Function(self.V)
+            phi.x.array[:] = self.vr.array
+
+            phi1, phi2 = phi.split()
+            V0 = fem.functionspace(self.domain, ("CG", 1))
+
+            self.phi1_proj = fem.Function(V0)
+            self.phi1_proj.interpolate(fem.Expression(
+                phi1, V0.element.interpolation_points()))
+        
+
+            self.phi2_proj = fem.Function(V0)
+            self.phi2_proj.interpolate(fem.Expression(
+                phi2, V0.element.interpolation_points()))
+
+
 
     def phi_norms(self, num = 0):
         phi1_norm = np.sqrt(fem.assemble_scalar(fem.form(ufl.inner(self.phi1_proj) * ufl.dx)))
