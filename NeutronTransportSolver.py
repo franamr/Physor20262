@@ -2,15 +2,22 @@ from mpi4py import MPI
 from dolfinx import *
 from dolfinx import mesh, fem, default_scalar_type
 import numpy as np
-from slepc4py   import SLEPc
 from dolfinx.fem.petsc import assemble_matrix
 from mshr import *
 import basix, ufl, os
-from scipy.sparse.linalg import spsolve
-from scipy.sparse import csr_matrix
 import scipy as sp
+from PowerIteration import gen_power_it_dynamic_momentum
 
 class NeutronTransportSolver:
+    '''
+    Solver two group for the Neutron transport equation at steady state.
+    This solver calculates the multiplication factor and the 2D or 3D fluxes for the thermal and fast group.
+    Input:
+    - Domain: mesh
+    - Equation constants: D1, D2, Sa1, Sa2, nusigf1, nusigf2, S12
+    - k: orden of polinomials used for the afinite element aproximation
+
+    '''
     def __init__(
             self,
             domain,
@@ -18,7 +25,6 @@ class NeutronTransportSolver:
             Sa1 = 0.2, Sa2 = 0.1,
             nusigf1 = 0.3, nusigf2 = 0.1,
             S12 = 0.1,
-            N_eig = 1,
             k = 1,
             bord_cond = 'dir'       
     ):
@@ -27,7 +33,6 @@ class NeutronTransportSolver:
         self.Sa1, self.Sa2 = Sa1, Sa2
         self.nusigf1, self.nusigf2 = nusigf1, nusigf2
         self.S12 = S12
-        self.N_eig = N_eig
         self.k = k
         self.bord_cond = bord_cond
 
@@ -109,7 +114,6 @@ class NeutronTransportSolver:
 
         self.phi2_proj = fem.Function(V0)
         self.phi2_proj.interpolate(fem.Expression(phi2, V0.element.interpolation_points()))
-
 
     def phi_norms(self, num = 0):
         phi1_norm = np.sqrt(fem.assemble_scalar(fem.form(ufl.inner(self.phi1_proj) * ufl.dx)))
