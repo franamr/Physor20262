@@ -57,7 +57,7 @@ def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
     A.mult(x1, Ax)
     Bx = B.createVecLeft()
     B.mult(x1, Bx)
-    lam1 = float((x1.dot(Ax)/x1.dot(Bx)).real)
+    lam1 = float((x1.dot(Ax)/x1.dot(Bx)))
 
     r = Ax.copy()
     r.axpy(-lam1, Bx)
@@ -79,7 +79,7 @@ def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
     A.mult(x2, Ax)
     Bx = B.createVecLeft()
     B.mult(x2, Bx)
-    lam2 = float((x2.dot(Ax)/x2.dot(Bx)).real)
+    lam2 = float((x2.dot(Ax)/x2.dot(Bx)))
 
     r = Ax.copy()
     r.axpy(-lam2, Bx)
@@ -114,7 +114,7 @@ def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
         A.mult(x_kp1, Ax)
         Bx = B.createVecLeft()
         B.mult(x_kp1, Bx)
-        lam_kp1 = float((x_kp1.dot(Ax) / x_kp1.dot(Bx)).real)
+        lam_kp1 = float((x_kp1.dot(Ax) / x_kp1.dot(Bx)))
 
         r = Ax.copy()
         r.axpy(-lam_kp1, Bx)
