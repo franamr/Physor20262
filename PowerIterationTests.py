@@ -19,15 +19,7 @@ def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
     - res: residuals list
     '''
     res = []
-
-    # ksp = PETSc.KSP().create(A.getComm())
-    # ksp.setOperators(B)
-    # ksp.setType('cg')
-    # ksp.getPC().setType('gamg')
-    # ksp.setTolerances(rtol=1e-8, max_it =1000)
-    # ksp.setFromOptions()
-    # ksp.setUp()
-
+    
     v   = B.createVecRight()
     rhs = A.createVecLeft()
     Ax = A.createVecLeft()
