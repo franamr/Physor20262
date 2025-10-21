@@ -24,7 +24,7 @@ def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
     ksp.setOperators(B)
     ksp.setType('gmres')
     ksp.getPC().setType('gamg')
-    ksp.setTolerances(rtol=1e-6, max_it =1000)
+    ksp.setTolerances(rtol=1e-8, max_it =1000)
     ksp.setFromOptions()
     ksp.getIterationNumber()
     ksp.setUp()
