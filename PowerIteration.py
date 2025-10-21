@@ -24,7 +24,7 @@ def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
     ksp.setOperators(B)
     ksp.setType('gmres')
     ksp.getPC().setType('gamg')
-    ksp.setTolerances(rtol=1e-6, max_it =1000)
+    ksp.setTolerances(rtol=1e-8, max_it =1000)
     ksp.setFromOptions()
     ksp.getIterationNumber()
     ksp.setUp()
@@ -41,19 +41,6 @@ def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
     #r    = A.createVecLeft()
     
     y = B.createVecLeft()
-    def Bnorm(x, h_kp1):
-        B.mult(x, h_kp1)
-        q = x.dot(h_kp1)                       
-        return float(np.sqrt(q))
-
-    
-    def solve_B(rhs, y):
-        '''
-        Preconditioned lineal solver
-        '''
-        y.set(0.0)
-        ksp.solve(rhs, y)
-        return y
 
     # Inicialización
     B.mult(v0, v)
