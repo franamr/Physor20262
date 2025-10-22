@@ -3,6 +3,46 @@ import numpy as np
 from petsc4py import PETSc
 import numpy as np
 
+# Aux functions
+def Bnorm(x, _work):
+    B.mult(x, _work)
+    q = x.dot(_work)
+    return float(np.sqrt(q))
+
+def solve_B(rhs, sol):
+    '''
+    Preconditioned linear solver
+    '''
+    ksp.solve(rhs, sol)
+
+def update_residual(A, Ax, B, Bx, x, r):
+    A.mult(x, Ax)
+    B.mult(x, Bx)
+    lam = float((x.dot(Ax)))
+    Ax.copy(r)
+    r.axpy(-lam, Bx)
+    return lam
+
+
+def apply_operator(ksp, A, x, rhs, sol):
+    """
+    Compute sol = B^{-1} A x
+    """
+    A.mult(x, rhs)
+    ksp.solve(rhs, sol)
+
+def Bnormalize(B, vec, out, work):
+    """
+    compute h = |vec|_B and out = 1/h vec
+    work vector is used internally for computations.
+    """
+    h = Bnorm(B, x, work)
+    vec.copy(out)
+    out.scale(1.0/h)
+    return h
+
+
+
 def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
     '''
     Dynamic power itetration with momentum to solver the generalized eigenvalue problem Ax = lambda Bx
@@ -20,6 +60,7 @@ def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
     '''
     res = []
 
+    # Initialize ksp
     ksp = PETSc.KSP().create(A.getComm())
     ksp.setOperators(B)
     ksp.setType('gmres')
@@ -40,47 +81,30 @@ def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
     v1_vec = A.createVecLeft()
     v2_vec = A.createVecLeft()
     r    = A.createVecLeft()
-
     work = B.createVecLeft()
-    def Bnorm(x, _work):
-        B.mult(x, _work)
-        q = x.dot(_work)
-        return float(np.sqrt(q))
-
-    def solve_B(rhs, sol):
-        '''
-        Preconditioned linear solver
-        '''
-        ksp.solve(rhs, sol)
-    
-    def update_residual(A, Ax, B, Bx, x, r):
-        A.mult(x, Ax)
-        B.mult(x, Bx)
-        lam = float((x.dot(Ax)))
-        Ax.copy(r)
-        r.axpy(-lam, Bx)
-        return lam
-
-
-    def solve_rhs(A, x, rhs, sol):
-        A.mult(x, rhs)
-        ksp.solve(rhs, sol)
     
 
-
+    # First power iteration
     # Inicialización
-    h0 = Bnorm(v0, work)
     x0 = v0.copy()
-    x0.scale(1.0/h0)
-    solve_rhs(A, x0, rhs, v1_vec)
+    h0 = Bnormalize(B, v0, x0, work)
+    apply_operator(ksp, A, x0, rhs, v1_vec)
 
-    # k = 0 ----------------------------------
+    # NB: Acá no está el control de error. Me parece bien, pero mejor dejarlo comentado:
+    # We skip the first error control to avoid unnecessary computations.
 
+    # ------ k = 0 -------
     # h1
+    x1 = v1_vec.copy()
     h1 = Bnorm(v1_vec, work)
 
+    # NB: Acá hay algo raro. No usas x1 después? 
+    # Dejo comentado lo que creo que debería pasar:
+    # h1 = Bnormalize(B, v1_vec, x1, work)
+    # apply_operator(ksp, A, x1, rhs, v2_vec)
+
+
     # x1
-    x1 = v1_vec.copy()
     x_km1 = v1_vec.copy()
     x_km1.scale(1.0/h1)
 
@@ -93,10 +117,14 @@ def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
         return lam1, x_km1, 1, res
 
     # v1
-    solve_rhs(A, x_km1, rhs, v2_vec)
+    apply_operator(ksp, A, x_km1, rhs, v2_vec)
+    # NB: Mi código reemplaza hasta acá. Imagino que el control de 
+    # error viene después de aplicar A. 
 
     # k = 1 --------------------------------
 
+    # NB: Acá se puede hacer lo mismo en términos de Bnormalize y 
+    # apply_operator. Creo que es más limpio.
     #h2
     h_k = Bnorm(v2_vec, work)
     x_k = v2_vec.copy()
@@ -122,7 +150,7 @@ def gen_power_it_dynamic_momentum(A, B, v0, tol=1e-8, max_iter=1000):
 
         #v_{k+1}
         #rhs = A.createVecLeft()
-        solve_rhs(A, x_k, rhs, v_kp1)
+        apply_operator(ksp, A, x_k, rhs, v_kp1)
 
         # u_{k+1}
         v_kp1.copy(u_kp1)
