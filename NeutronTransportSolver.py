@@ -28,7 +28,9 @@ class NeutronTransportSolver:
             S12 = 0.1,
             k = 1,
             bord_cond = 'dir' ,
-            eigmethod = 'powerit'     
+            eigmethod = 'powerit',
+            ksp_tol = 1e-6,
+            power_tol = 1e-5     
     ):
         self.domain = domain
         self.D1, self.D2 = D1, D2
@@ -38,7 +40,8 @@ class NeutronTransportSolver:
         self.k = k
         self.bord_cond = bord_cond
         self.eigmethod = eigmethod
-
+        self.power_tol = power_tol
+        self.ksp_tol = ksp_tol
         self.V = self._function_space()
         self.eigval = None
         self.vr = None
@@ -49,6 +52,7 @@ class NeutronTransportSolver:
         self.phi2_list = None
         self.a = None
         self.f = None
+        self.lambs = None
 
     def _function_space(self):
         H = basix.ufl.element("Lagrange", self.domain.basix_cell(), self.k)
@@ -87,6 +91,14 @@ class NeutronTransportSolver:
             bcs = [bc1x, bcx]
         elif self.bord_cond == 'neu':
             bcs = []
+
+        elif self.bord_cond == 'rob':
+            cst_rob = 0.4692
+            alfa1 = -cst_rob/self.D1
+            alfa2 = -cst_rob/self.D2
+            ds = ufl.ds
+            A += - alfa1 * phi1 * v1 * ds - alfa2 * phi2 * v2 * ds
+            bcs = []
         else:
             raise ValueError("Condición de borde inexistente: debe ser 'dir' o 'neu'")
 
@@ -101,11 +113,12 @@ class NeutronTransportSolver:
         v0 =self.a.createVecLeft()
         v0.set(1.0)
         if self.eigmethod == 'powerit':
-            lam_k, x_k, k, res = gen_power_it_dynamic_momentum(self.f, self.a, v0, tol = 1e-8, max_iter = 1000)
+            lam_k, x_k, k, res, lambs = gen_power_it_dynamic_momentum(self.f, self.a, v0, self.power_tol, self.ksp_tol, max_iter = 1000)
             self.eigval = lam_k
             self.power_its = k
             self.vec = x_k
             self.power_res = res
+            self.lambs = lambs
 
             phi = fem.Function(self.V)
             phi.x.array[:] = self.vec.array
@@ -119,7 +132,7 @@ class NeutronTransportSolver:
             self.phi2_proj.interpolate(fem.Expression(phi2, V0.element.interpolation_points()))
         if self.eigmethod == 'slepc':
                   # cálculo de vvalores y vectores propios
-            print('aca')
+            #print('aca')
             eigensolver = SLEPc.EPS().create(MPI.COMM_WORLD)
             eigensolver.setDimensions(1)
             eigensolver.setProblemType(SLEPc.EPS.ProblemType.GNHEP)
@@ -137,7 +150,7 @@ class NeutronTransportSolver:
             self.vr, self.vi = a.getVecs()
   
             lam = eigensolver.getEigenpair(0, self.vr, self.vi)
-            print('aca2')
+            #print('aca2')
             self.eigval = lam
 
             phi = fem.Function(self.V)
