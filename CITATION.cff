@@ -1,1 +1,8 @@
-.
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Muñoz Riquelme"
+  given-names: "Francisca"
+  orcid: "https://orcid.org/0009-0000-2836-3119"
+title: "GDMPMfor neutron transport equation"
+url: "https://github.com/franamr/Physor20262"
