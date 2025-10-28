@@ -27,7 +27,7 @@ def solveProblem(N, dim, method):
 #Ns = [16, 32, 64, 128, 256, 512]
 dim = 3
 Ns = [16, 32, 64]
-method = "slepc"
+method = "powerit"
 for N in Ns: 
     solveProblem(N, dim, method)
 
