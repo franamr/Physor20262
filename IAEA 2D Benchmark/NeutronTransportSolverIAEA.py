@@ -8,6 +8,8 @@ import ufl
 import os
 import basix
 import dolfinx.fem.petsc as fem_petsc
+from PowerIteration import gen_power_it_dynamic_momentum
+
 
 
 class NeutronTransportSolver2:
