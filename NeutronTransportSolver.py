@@ -7,7 +7,7 @@ from mshr import *
 import basix, ufl, os
 import scipy as sp
 from slepc4py import SLEPc
-from PowerIteration2 import gen_power_it_dynamic_momentum
+from PowerIteration import gen_power_it_dynamic_momentum
 
 class NeutronTransportSolver:
     '''
